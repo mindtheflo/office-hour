@@ -201,11 +201,6 @@ export default function Home() {
       location: zoomLink || "",
     })
 
-    // Add multiple reminders
-    params.append("add", "event,reminder,1440")
-    params.append("add", "event,reminder,60")
-    params.append("add", "event,reminder,15")
-
     return `https://calendar.google.com/calendar/render?${params.toString()}`
   }
 
