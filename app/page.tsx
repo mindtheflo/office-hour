@@ -195,11 +195,16 @@ export default function Home() {
 
     const params = new URLSearchParams({
       action: "TEMPLATE",
-      text: "Office Hour with Flo",
+      text: "Office Hours with Flo",
       dates: `${formatDateForCalendar(officeHourDate)}/${formatDateForCalendar(endDate)}`,
-      details: `Join the office hour session.\n\nZoom Link: ${zoomLink}`,
+      details: `Join the office hours session.\n\ Link: ${zoomLink}`,
       location: zoomLink || "",
     })
+
+    // Add multiple reminders
+    params.append("add", "event,reminder,1440")
+    params.append("add", "event,reminder,60")
+    params.append("add", "event,reminder,15")
 
     return `https://calendar.google.com/calendar/render?${params.toString()}`
   }
@@ -282,9 +287,9 @@ export default function Home() {
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
         <div className="text-center space-y-4">
-          <h1 className="text-4xl md:text-6xl font-bold text-gray-900">Office Hour with Flo</h1>
+          <h1 className="text-4xl md:text-6xl font-bold text-gray-900">Office Hours with Flo</h1>
           <p className="text-lg text-gray-600 max-w-lg mx-auto">
-            Join Flo for daily office hours to help you onboard Notis.
+            Join Flo for daily office hours to help you onboard Notis and answer your questions.
           </p>
         </div>
 
