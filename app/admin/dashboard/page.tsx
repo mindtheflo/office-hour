@@ -3,8 +3,6 @@
 import { useState, useEffect } from "react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
-import { TimezoneSelector } from "@/components/timezone-selector"
-import { format, toZonedTime, fromZonedTime } from "date-fns-tz"
 
 interface OfficeHourConfig {
   defaultZoomLink: string
@@ -35,13 +33,6 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [timezone, setTimezone] = useState<string>(() => {
-    // Try to get from localStorage first, otherwise use browser timezone
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('adminTimezone') || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-    }
-    return 'UTC'
-  })
   
   // Modal state for unsaved changes
   const [modalOverride, setModalOverride] = useState<{
@@ -56,9 +47,9 @@ export default function AdminDashboard() {
   /* ──────────────────────────────────
      • TIMEZONE HELPERS
   ────────────────────────────────── */
-  // Convert UTC time string (HH:mm:ss) to local time string (HH:mm)
+  // Convert UTC time string (HH:mm:ss) to local timezone time string (HH:mm)
   const utcTimeToLocal = (utcTime: string): string => {
-    if (!utcTime || !timezone) return utcTime?.slice(0, 5) || "15:00"
+    if (!utcTime) return "15:00"
     
     try {
       // Create a date object for today with the UTC time
@@ -66,32 +57,34 @@ export default function AdminDashboard() {
       const [hours, minutes] = utcTime.split(':').map(Number)
       const utcDate = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes))
       
-      // Convert to the selected timezone
-      const zonedDate = toZonedTime(utcDate, timezone)
-      
-      // Format as HH:mm
-      return format(zonedDate, 'HH:mm', { timeZone: timezone })
+      // Format as HH:mm in local timezone
+      return utcDate.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        hour12: false 
+      })
     } catch (error) {
       console.error('Error converting UTC to local time:', error)
       return utcTime?.slice(0, 5) || "15:00"
     }
   }
 
-  // Convert local time string (HH:mm) to UTC time string (HH:mm:ss)
+  // Convert local timezone time string (HH:mm) to UTC time string (HH:mm:ss)
   const localTimeToUtc = (localTime: string): string => {
-    if (!localTime || !timezone) return `${localTime}:00`
+    if (!localTime) return "15:00:00"
     
     try {
-      // Create a date object for today with the local time
-      const today = new Date()
+      // Parse the time components
       const [hours, minutes] = localTime.split(':').map(Number)
+      
+      // Create a date in local time
+      const today = new Date()
       const localDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), hours, minutes)
       
-      // Convert from the selected timezone to UTC
-      const utcDate = fromZonedTime(localDate, timezone)
-      
-      // Format as HH:mm:ss
-      return format(utcDate, 'HH:mm:ss', { timeZone: 'UTC' })
+      // Format as HH:mm:ss in UTC
+      const utcHours = localDate.getUTCHours()
+      const utcMinutes = localDate.getUTCMinutes()
+      return `${String(utcHours).padStart(2, '0')}:${String(utcMinutes).padStart(2, '0')}:00`
     } catch (error) {
       console.error('Error converting local to UTC time:', error)
       return `${localTime}:00`
@@ -125,18 +118,14 @@ export default function AdminDashboard() {
   /* ──────────────────────────────────
      • EFFECTS
   ────────────────────────────────── */
-  // Save timezone preference to localStorage
-  useEffect(() => {
-    if (timezone) {
-      localStorage.setItem('adminTimezone', timezone)
-    }
-  }, [timezone])
-
   useEffect(() => {
     fetchConfig()
+  }, [])
+
+  useEffect(() => {
     fetchDateOverrides()
     fetchCalendarStats()
-  }, [currentDate, timezone])
+  }, [currentDate])
 
   /* ──────────────────────────────────
      • DATA FETCHING
@@ -397,6 +386,11 @@ export default function AdminDashboard() {
     })
   }
 
+  // Get the user's local timezone for display
+  const getUserTimezone = () => {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone
+  }
+
   /* ──────────────────────────────────
      • RENDER
   ────────────────────────────────── */
@@ -529,10 +523,6 @@ export default function AdminDashboard() {
           <div className="lg:order-2">
             <div className="bg-white rounded-lg shadow p-6">
               <h2 className="text-xl font-semibold mb-4">Default Configuration</h2>
-              
-              <div className="mb-4">
-                <TimezoneSelector value={timezone} onChange={setTimezone} />
-              </div>
 
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -549,11 +539,9 @@ export default function AdminDashboard() {
 
               <div className="mb-6">
                 <h3 className="text-sm font-medium text-gray-700 mb-2">Weekly Schedule</h3>
-                {timezone && (
-                  <p className="text-xs text-gray-500 mb-3">
-                    All times are displayed in {timezone.replace(/_/g, ' ')} timezone
-                  </p>
-                )}
+                <p className="text-xs text-gray-500 mb-3">
+                  All times are displayed in your local timezone ({getUserTimezone()})
+                </p>
                 <div className="space-y-3">
                   {daysOfWeek.map((day) => (
                     <div key={day} className="flex items-center space-x-3">
@@ -646,7 +634,7 @@ export default function AdminDashboard() {
                     Custom Time (leave empty for default)
                   </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    Time in {timezone.replace(/_/g, ' ')} timezone
+                    Time in your local timezone ({getUserTimezone()})
                   </p>
                   <input
                     type="time"

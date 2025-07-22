@@ -35,8 +35,8 @@ This is a Next.js application for managing and scheduling office hours. It provi
 
 1. Clone the repository:
    ```
-   git clone https://github.com/yourusername/office-hour-scheduler.git
-   cd office-hour-scheduler
+   git clone https://github.com/mindtheflo/office-hour.git
+   cd office-hour
    ```
 
 2. Install dependencies:
@@ -56,11 +56,7 @@ This is a Next.js application for managing and scheduling office hours. It provi
 
 4. Set up the Supabase database:
    - Create a new Supabase project.
-   - Run the SQL scripts in the `scripts/` directory in order using the Supabase SQL editor:
-     1. 001_create_tables.sql
-     2. 002_simplify_schema.sql
-     3. 003_readd_weekly_time.sql
-     4. 004_readd_daily_time_override.sql
+   - Run the SQL scrips in the `scripts/` directory using the Supabase SQL editor.
 
 5. Run the development server:
    ```

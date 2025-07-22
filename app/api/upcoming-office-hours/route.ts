@@ -7,9 +7,9 @@ export async function GET(request: Request) {
     const offset = parseInt(searchParams.get('offset') || '0')
     const limit = parseInt(searchParams.get('limit') || '10')
     
-    // Get current date in CET timezone
+    // Get current date in UTC
     const now = new Date()
-    const currentDate = new Date(now.toLocaleString("en-US", { timeZone: "Europe/Berlin" }))
+    const currentDate = new Date(now)
     
     // Calculate date range for the next 30 days
     const startDate = new Date(currentDate)
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
         if (override.is_available && override.time) {
           allOfficeHours.push({
             date: dateString,
-            time: override.time.slice(0, 5),
+            time: override.time, // Keep full UTC time string
             isOverride: true,
           })
         }
@@ -93,7 +93,7 @@ export async function GET(request: Request) {
         if (i === 0) {
           const officeHourTime = new Date(checkDate)
           const [hours, minutes] = weeklySchedule.custom_time.split(":")
-          officeHourTime.setHours(Number.parseInt(hours), Number.parseInt(minutes), 0, 0)
+          officeHourTime.setUTCHours(Number.parseInt(hours), Number.parseInt(minutes), 0, 0)
 
           if (officeHourTime <= now) {
             continue // Skip if time has passed today
@@ -102,7 +102,7 @@ export async function GET(request: Request) {
 
         allOfficeHours.push({
           date: dateString,
-          time: weeklySchedule.custom_time.slice(0, 5),
+          time: weeklySchedule.custom_time, // Keep full UTC time string
           isOverride: false,
         })
       }

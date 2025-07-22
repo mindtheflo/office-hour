@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge"
 import { Calendar, Video, ChevronLeft, ChevronRight } from "lucide-react"
 import { TimezoneSelector } from "@/components/timezone-selector"
 import { LoadingSkeleton } from "@/components/loading-skeleton"
-import { Checkbox } from "@/components/ui/checkbox"
 import { useToast } from "@/hooks/use-toast"
 
 interface OfficeHour {
@@ -40,7 +39,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [countdown, setCountdown] = useState<Countdown | null>(null)
-  const [acceptedBroadcast, setAcceptedBroadcast] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const { toast } = useToast()
 
@@ -57,13 +55,14 @@ export default function Home() {
       const selectedOfficeHour = officeHours[selectedIndex]
       const now = new Date()
 
-      // Parse the selected office hour date and time
+      // Parse the UTC time from the database
       const [year, month, day] = selectedOfficeHour.date.split("-").map(Number)
       const [hours, minutes] = selectedOfficeHour.time.split(":").map(Number)
 
-      const utcTimestamp = Date.UTC(year, month - 1, day, hours - 1, minutes)
+      // Create the office hour date in UTC
+      const officeHourDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0))
 
-      const diff = utcTimestamp - now.getTime()
+      const diff = officeHourDate.getTime() - now.getTime()
 
       if (diff > 0) {
         const days = Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -109,7 +108,7 @@ export default function Home() {
         }
       } else {
         // Append new office hours
-        setOfficeHours(prev => [...prev, ...data.upcomingOfficeHours])
+        setOfficeHours((prev: OfficeHour[]) => [...prev, ...data.upcomingOfficeHours])
       }
       
       setHasMore(data.hasMore)
@@ -138,8 +137,7 @@ export default function Home() {
 
   const formatDate = (dateString: string, targetTimezone: string) => {
     const [year, month, day] = dateString.split("-").map(Number)
-    const utcTimestamp = Date.UTC(year, month - 1, day, -1, 0)
-    const date = new Date(utcTimestamp)
+    const date = new Date(year, month - 1, day)
     return date.toLocaleDateString("en-US", {
       weekday: "long",
       year: "numeric",
@@ -155,10 +153,11 @@ export default function Home() {
     const [year, month, day] = dateString.split("-").map(Number)
     const [hours, minutes] = timeString.split(":").map(Number)
     
-    const utcTimestamp = Date.UTC(year, month - 1, day, hours - 1, minutes)
-    const date = new Date(utcTimestamp)
+    // Create date in UTC
+    const utcDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0))
     
-    return date.toLocaleTimeString("en-US", {
+    // Format in target timezone
+    return utcDate.toLocaleTimeString("en-US", {
       hour: "2-digit",
       minute: "2-digit",
       timeZone: targetTimezone,
@@ -173,10 +172,11 @@ export default function Home() {
     const [year, month, day] = selectedOfficeHour.date.split("-").map(Number)
     const [hours, minutes] = selectedOfficeHour.time.split(":").map(Number)
 
-    const utcTimestamp = Date.UTC(year, month - 1, day, hours - 1, minutes)
-    const oneHourAfter = utcTimestamp + 60 * 60 * 1000
+    // Create the office hour date in UTC
+    const officeHourDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0))
+    const oneHourAfter = officeHourDate.getTime() + 60 * 60 * 1000
 
-    return now.getTime() >= utcTimestamp && now.getTime() <= oneHourAfter
+    return now.getTime() >= officeHourDate.getTime() && now.getTime() <= oneHourAfter
   }
 
   const generateCalendarEvent = () => {
@@ -185,17 +185,18 @@ export default function Home() {
     const [year, month, day] = selectedOfficeHour.date.split("-").map(Number)
     const [hours, minutes] = selectedOfficeHour.time.split(":").map(Number)
 
-    const startUTC = Date.UTC(year, month - 1, day, hours - 1, minutes)
-    const endUTC = startUTC + 60 * 60 * 1000
+    // Create the office hour date in UTC
+    const officeHourDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0))
+    const endDate = new Date(officeHourDate.getTime() + 60 * 60 * 1000)
 
-    const formatDateForCalendar = (utcMs: number) => {
-      return new Date(utcMs).toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"
+    const formatDateForCalendar = (date: Date) => {
+      return date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z"
     }
 
     const params = new URLSearchParams({
       action: "TEMPLATE",
       text: "Office Hour with Flo",
-      dates: `${formatDateForCalendar(startUTC)}/${formatDateForCalendar(endUTC)}`,
+      dates: `${formatDateForCalendar(officeHourDate)}/${formatDateForCalendar(endDate)}`,
       details: `Join the office hour session.\n\nZoom Link: ${zoomLink}`,
       location: zoomLink || "",
     })
@@ -222,27 +223,11 @@ export default function Home() {
   }
 
   const handleAddToCalendar = () => {
-    if (!acceptedBroadcast) {
-      toast({
-        title: "Acceptance Required",
-        description: "Please accept the broadcast conditions before adding to calendar.",
-        variant: "destructive",
-      })
-      return
-    }
     trackCalendarAddition()
     window.open(generateCalendarEvent(), "_blank")
   }
 
   const handleJoinZoom = () => {
-    if (!acceptedBroadcast) {
-      toast({
-        title: "Acceptance Required",
-        description: "Please accept the broadcast conditions before joining the Zoom meeting.",
-        variant: "destructive",
-      })
-      return
-    }
     if (zoomLink) {
       window.open(zoomLink, "_blank")
     }
@@ -380,49 +365,27 @@ export default function Home() {
 
             <TimezoneSelector value={timezone} onChange={setTimezone} />
 
-            <div className="space-y-4">
-              <div className="flex items-start space-x-2 p-4 bg-gray-50 rounded-lg">
-                <Checkbox 
-                  id="broadcast-accept" 
-                  checked={acceptedBroadcast}
-                  onCheckedChange={(checked) => setAcceptedBroadcast(checked as boolean)}
-                  className="mt-1"
-                />
-                <label 
-                  htmlFor="broadcast-accept" 
-                  className="text-sm text-gray-700 cursor-pointer leading-relaxed"
-                >
-                  I understand and accept that this office hour session may be recorded and broadcast live on 
-                  YouTube, Instagram, X, Facebook, TikTok, LinkedIn, and other social media platforms. I consent to my 
-                  participation being included in these broadcasts.
-                </label>
-              </div>
+            <div className="space-y-3">
+              <Button 
+                onClick={handleAddToCalendar} 
+                className="w-full" 
+                size="lg"
+              >
+                <Calendar className="w-4 h-4 mr-2" />
+                Add to Calendar
+              </Button>
 
-              <div className="space-y-3">
-                <Button 
-                  onClick={handleAddToCalendar} 
-                  className="w-full" 
+              {isWithinOfficeHourWindow() && zoomLink && (
+                <Button
+                  variant="outline"
+                  className="w-full bg-transparent"
                   size="lg"
-                  disabled={!acceptedBroadcast}
-                  variant={acceptedBroadcast ? "default" : "secondary"}
+                  onClick={handleJoinZoom}
                 >
-                  <Calendar className="w-4 h-4 mr-2" />
-                  Add to Calendar
+                  <Video className="w-4 h-4 mr-2" />
+                  Join Live Stream
                 </Button>
-
-                {isWithinOfficeHourWindow() && zoomLink && (
-                  <Button
-                    variant={acceptedBroadcast ? "outline" : "secondary"}
-                    className="w-full bg-transparent"
-                    size="lg"
-                    onClick={handleJoinZoom}
-                    disabled={!acceptedBroadcast}
-                  >
-                    <Video className="w-4 h-4 mr-2" />
-                    Join Live Stream
-                  </Button>
-                )}
-              </div>
+              )}
             </div>
           </CardContent>
         </Card>
