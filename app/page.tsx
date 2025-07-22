@@ -40,6 +40,7 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [countdown, setCountdown] = useState<Countdown | null>(null)
   const [hasMore, setHasMore] = useState(true)
+  const [isInOfficeHourWindow, setIsInOfficeHourWindow] = useState(false)
   const { toast } = useToast()
 
   useEffect(() => {
@@ -61,8 +62,15 @@ export default function Home() {
 
       // Create the office hour date in UTC
       const officeHourDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0))
+      const oneHourAfter = officeHourDate.getTime() + 60 * 60 * 1000
 
       const diff = officeHourDate.getTime() - now.getTime()
+      const nowTime = now.getTime()
+
+      // Check if we're within the office hour window
+      const inWindow = (nowTime >= officeHourDate.getTime() && nowTime <= oneHourAfter)
+      
+      setIsInOfficeHourWindow(inWindow)
 
       if (diff > 0) {
         const days = Math.floor(diff / (1000 * 60 * 60 * 24))
@@ -165,19 +173,7 @@ export default function Home() {
     })
   }
 
-  const isWithinOfficeHourWindow = () => {
-    if (!selectedOfficeHour) return false
 
-    const now = new Date()
-    const [year, month, day] = selectedOfficeHour.date.split("-").map(Number)
-    const [hours, minutes] = selectedOfficeHour.time.split(":").map(Number)
-
-    // Create the office hour date in UTC
-    const officeHourDate = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0, 0))
-    const oneHourAfter = officeHourDate.getTime() + 60 * 60 * 1000
-
-    return now.getTime() >= officeHourDate.getTime() && now.getTime() <= oneHourAfter
-  }
 
   const generateCalendarEvent = () => {
     if (!selectedOfficeHour) return ""
@@ -278,9 +274,12 @@ export default function Home() {
     )
   }
 
+
+
   return (
     <div className="min-h-screen bg-white flex items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
+        
         <div className="text-center space-y-4">
           <h1 className="text-4xl md:text-6xl font-bold text-gray-900">Office Hours with Flo</h1>
           <p className="text-lg text-gray-600 max-w-lg mx-auto">
@@ -375,7 +374,9 @@ export default function Home() {
                 Add to Calendar
               </Button>
 
-              {isWithinOfficeHourWindow() && zoomLink && (
+
+
+              {isInOfficeHourWindow && zoomLink && (
                 <Button
                   variant="outline"
                   className="w-full bg-transparent"

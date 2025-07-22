@@ -76,6 +76,18 @@ export async function GET(request: Request) {
 
       if (override) {
         if (override.is_available && override.time) {
+          // For today's override, check if we're still within 1 hour of start time
+          if (i === 0) {
+            const [hours, minutes] = override.time.split(":")
+            const officeHourTime = new Date(checkDate)
+            officeHourTime.setUTCHours(Number.parseInt(hours), Number.parseInt(minutes), 0, 0)
+            
+            const oneHourAfter = new Date(officeHourTime.getTime() + 60 * 60 * 1000)
+            if (now > oneHourAfter) {
+              continue // Skip only if more than 1 hour has passed
+            }
+          }
+          
           allOfficeHours.push({
             date: dateString,
             time: override.time, // Keep full UTC time string
@@ -95,8 +107,10 @@ export async function GET(request: Request) {
           const [hours, minutes] = weeklySchedule.custom_time.split(":")
           officeHourTime.setUTCHours(Number.parseInt(hours), Number.parseInt(minutes), 0, 0)
 
-          if (officeHourTime <= now) {
-            continue // Skip if time has passed today
+          // Include office hour if we're within 1 hour of its start time
+          const oneHourAfter = new Date(officeHourTime.getTime() + 60 * 60 * 1000)
+          if (now > oneHourAfter) {
+            continue // Skip only if more than 1 hour has passed
           }
         }
 
